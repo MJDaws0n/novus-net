@@ -435,7 +435,7 @@ fn net_read_line(fd: i32, max_len: i32) -> str {
         if (ch == 13) {
             // skip carriage return
         } else {
-            out = out + _byte_to_char(ch);
+            out = out + copy_bytes_raw(bp, 1);
         }
         pos = pos + 1;
     }
