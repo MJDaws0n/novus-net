@@ -391,23 +391,23 @@ fn net_listen_on(port: i32, backlog: i32) -> i32 {
 // Read a line from a socket (up to newline or max_len)
 fn net_read_line(fd: i32, max_len: i32) -> str {
     let buf: str = "\0";
+    let bp: u64 = ptr(buf);
     let out: str = "";
     let pos: i32 = 0;
     while (pos < max_len) {
         mov(x0, fd);
-        mov(x9, buf);
-        let bptr: u64 = getreg(x9);
-        mov(x1, bptr);
+        mov(x1, buf);
         mov(x2, 1);
         mov(x16, 0x2000003);
         syscall();
         let nread: i32 = u64_to_i32(getreg(x0));
         if (nread <= 0) { break; }
-        if (buf[0] == '\n') { break; }
-        if (buf[0] == '\r') {
+        let ch: i32 = read_byte(bp);
+        if (ch == 10) { break; }
+        if (ch == 13) {
             // skip carriage return
         } else {
-            out = out + buf[0];
+            out = out + copy_bytes_raw(bp, 1);
         }
         pos = pos + 1;
     }
@@ -430,11 +430,7 @@ fn net_read_all(fd: i32, max_len: i32) -> str {
         syscall();
         let nr: i32 = u64_to_i32(getreg(x0));
         if (nr <= 0) { break; }
-        let i: i32 = 0;
-        while (i < nr) {
-            result = result + buf[i];
-            i = i + 1;
-        }
+        result = result + copy_bytes_raw(ptr(buf), nr);
         total = total + nr;
     }
     return result;
