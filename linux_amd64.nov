@@ -391,35 +391,36 @@ fn net_listen_on(port: i32, backlog: i32) -> i32 {
 
 // Read a line from a socket (up to newline or max_len)
 fn net_read_line(fd: i32, max_len: i32) -> str {
-    let buf: str = "\0";
-    let bp: u64 = ptr(buf);
-    let out: str = "";
+    let tmp: str = "\0";
+    let out: str = make_buffer(max_len);
     let pos: i32 = 0;
     while (pos < max_len) {
         mov(rax, 0);       // SYS_read
         mov(rdi, fd);
-        mov(rsi, buf);
+        mov(rsi, tmp);
         mov(rdx, 1);
         syscall();
         let nread: i32 = u64_to_i32(getreg(rax));
         if (nread <= 0) { break; }
-        let ch: i32 = read_byte(bp);
+        let ch: i32 = read_byte(ptr(tmp));
         if (ch == 10) { break; }
         if (ch == 13) {
             // skip carriage return
         } else {
-            out = out + copy_bytes_raw(bp, 1);
+            out[pos] = ch;
+            pos = pos + 1;
         }
-        pos = pos + 1;
     }
+    if (pos == 0) { return ""; }
+    out[pos] = 0;
     return out;
 }
 
 // Read all available data from a socket into a string
 fn net_read_all(fd: i32, max_len: i32) -> str {
     let buf: str = net_make_buf(max_len);
+    let out: str = make_buffer(max_len);
     let total: i32 = 0;
-    let result: str = "";
     while (total < max_len) {
         let avail: i32 = net_poll_read(fd, 100);
         if (avail <= 0) { break; }
@@ -431,8 +432,14 @@ fn net_read_all(fd: i32, max_len: i32) -> str {
         syscall();
         let nr: i32 = u64_to_i32(getreg(rax));
         if (nr <= 0) { break; }
-        result = result + copy_bytes_raw(ptr(buf), nr);
+        let j: i32 = 0;
+        while (j < nr) {
+            out[total + j] = read_byte(ptr(buf) + i32_to_u64(j));
+            j = j + 1;
+        }
         total = total + nr;
     }
-    return result;
+    if (total == 0) { return ""; }
+    out[total] = 0;
+    return out;
 }
